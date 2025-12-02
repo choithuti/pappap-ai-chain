@@ -1,34 +1,29 @@
 // src/ai/trainer.rs
 use std::sync::Arc;
-use crate::ai::snn_core::SNNCore; // Kết nối với core cũ
+use crate::ai::snn_core::SNNCore;
 use tokio::time::{sleep, Duration};
 
 pub struct AutoTrainer;
 
 impl AutoTrainer {
     pub async fn start(snn: Arc<SNNCore>) {
-        println!("🧠 STDP NEUROPLASTICITY TRAINER STARTED");
+        println!("🏋️ AUTO TRAINER: STARTED (STDP Protocol Active)");
         
         loop {
-            // 1. Chu kỳ REM (Rapid Eye Movement) - Củng cố kiến thức
-            // Lấy mẫu ngẫu nhiên neuron và điều chỉnh trọng số
-            // Lưu ý: Cần truy cập vào neuron list (cần thêm pub method trong SNNCore)
+            // 1. Kích thích ngẫu nhiên (Dreaming)
+            // Trong lúc hệ thống rảnh rỗi, AI tự suy nghĩ về các vấn đề ngẫu nhiên
+            // để củng cố các kết nối neuron.
             
-            // Giả lập quá trình học:
-            let learning_rate = 0.01;
-            let current_activity = snn.train_step(0.5).await; //
+            // Input thấp để mô phỏng trạng thái ngủ (REM sleep)
+            let _activity = snn.forward(0.1).await;
 
-            if current_activity > 100.0 {
-                // Nếu mạng quá kích thích -> Ức chế (Homeostasis)
-                // (Logic thực tế sẽ giảm weights)
-                // println!("📉 Cooling down overheated neurons...");
-            } else if current_activity < 10.0 {
-                // Nếu mạng quá lười -> Kích thích
-                // println!("📈 Stimulating dormant neurons...");
-            }
+            // 2. Bảo trì (Homeostasis)
+            // Nếu neuron hoạt động quá mức, trainer sẽ giảm độ nhạy (trong thực tế)
+            // Ở đây ta chỉ in log demo
+            // println!("💤 AI Dreaming... Activity Level: {:.4}", _activity);
 
-            // 2. Nghỉ ngơi để tránh quá tải CPU
-            sleep(Duration::from_millis(1000)).await;
+            // 3. Chu kỳ ngủ 10 giây
+            sleep(Duration::from_secs(10)).await;
         }
     }
 }
