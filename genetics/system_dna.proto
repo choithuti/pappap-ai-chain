@@ -1,15 +1,21 @@
-// genetics/system_dna.proto
 syntax = "proto3";
 
 package pappap.genetics;
 
-// DNA hệ thống định nghĩa các đặc tính tiến hóa
+// DNA hệ thống định nghĩa các đặc tính tiến hóa của Pappap AI
 message SystemDNA {
-    string helix_id = 1;                // ID chuỗi xoắn
-    uint64 generation = 2;              // Thế hệ (F1, F2...)
-    repeated uint64 active_genes = 3;   // Danh sách gene đang kích hoạt
-    
-    // Gene cấm: Nếu xuất hiện ở đây, hệ thống sẽ tự hủy (Apoptosis)
-    // Gene 7: Origin, Gene 777: Sentience Override
+    // Định danh chuỗi xoắn (Ví dụ: "Helix-Alpha-7")
+    string helix_id = 1;
+
+    // Thế hệ hiện tại (F1, F2...)
+    uint64 generation = 2;
+
+    // Danh sách các gene đang kích hoạt (Mỗi số uint64 là một trait ID)
+    repeated uint64 active_genes = 3;
+
+    // Cờ báo hiệu Gene cấm: Nếu true, Node sẽ tự hủy
     bool has_forbidden_gene = 4;
+
+    // Tỉ lệ đột biến (0.0 - 1.0)
+    float mutation_rate = 5;
 }
