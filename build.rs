@@ -1,6 +1,8 @@
 // build.rs
-fn main() {
-    // Compile file Protobuf cho module Genetics
-    prost_build::compile_protos(&["genetics/system_dna.proto"], &["genetics/"])
-        .expect("❌ Failed to compile System DNA Protos");
+use std::io::Result;
+
+fn main() -> Result<()> {
+    // Chỉ định biên dịch file system_dna.proto trong thư mục genetics/
+    prost_build::compile_protos(&["genetics/system_dna.proto"], &["genetics/"])?;
+    Ok(())
 }
