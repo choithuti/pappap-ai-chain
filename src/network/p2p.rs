@@ -2,7 +2,7 @@
 use libp2p::{
     gossipsub, identity, noise, tcp, yamux,
     swarm::{NetworkBehaviour, SwarmEvent},
-    PeerId, Swarm, Multiaddr,
+    PeerId, Swarm,
 };
 use libp2p::futures::StreamExt;
 use std::time::Duration;
@@ -20,38 +20,35 @@ pub struct P2PNode {
     swarm: Swarm<PappapBehaviour>,
     topic: gossipsub::IdentTopic,
     pub peer_count: Arc<AtomicUsize>,
+    // [FIX] Đưa receiver vào trong struct để quản lý luồng
+    command_rx: mpsc::UnboundedReceiver<Vec<u8>>, 
 }
 
 impl P2PNode {
     pub async fn new(
         local_key: identity::Keypair, 
         peer_count: Arc<AtomicUsize>
-    ) -> Result<(Self, mpsc::UnboundedReceiver<Vec<u8>>, PeerId), Box<dyn Error>> {
+    ) -> Result<(Self, mpsc::UnboundedSender<Vec<u8>>, PeerId), Box<dyn Error>> {
         let local_peer_id = PeerId::from(local_key.public());
         
-        // 1. Setup Gossipsub (Pub/Sub)
+        // Setup Gossip & Identify (Giữ nguyên code cũ)
         let topic = gossipsub::IdentTopic::new("pappap-mainnet");
-        
         let gossip_config = gossipsub::ConfigBuilder::default()
             .heartbeat_interval(Duration::from_secs(1))
             .validation_mode(gossipsub::ValidationMode::Strict)
             .build()
-            .map_err(|e| format!("Gossip config error: {}", e))?;
+            .map_err(|e| format!("Config error: {}", e))?;
 
-        let gossipsub = gossipsub::Behaviour::new(
-            gossipsub::MessageAuthenticity::Signed(local_key.clone()),
-            gossip_config,
-        )?;
+        let behaviour = PappapBehaviour {
+            gossipsub: gossipsub::Behaviour::new(
+                gossipsub::MessageAuthenticity::Signed(local_key.clone()),
+                gossip_config,
+            )?,
+            identify: libp2p::identify::Behaviour::new(
+                libp2p::identify::Config::new("pappap/0.8.0".into(), local_key.public())
+            ),
+        };
 
-        // 2. Setup Identify (Để peer nhận ra nhau)
-        let identify = libp2p::identify::Behaviour::new(
-            libp2p::identify::Config::new("pappap/0.8.0".into(), local_key.public())
-        );
-
-        let mut behaviour = PappapBehaviour { gossipsub, identify };
-        behaviour.gossipsub.subscribe(&topic)?;
-
-        // 3. Build Swarm
         let mut swarm = libp2p::SwarmBuilder::with_existing_identity(local_key)
             .with_tokio()
             .with_tcp(tcp::Config::default(), noise::Config::new, yamux::Config::default)?
@@ -59,41 +56,50 @@ impl P2PNode {
             .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
             .build();
 
-        // Listen on any available port (0)
         swarm.listen_on("/ip4/0.0.0.0/tcp/9000".parse()?)?;
+        
+        // Subscribe topic
+        swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
 
-        let (_, rx) = mpsc::unbounded_channel();
-        Ok((Self { swarm, topic, peer_count }, rx, local_peer_id))
+        // [FIX] Tạo channel tại đây và trả về Sender cho Main
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+
+        Ok((Self { swarm, topic, peer_count, command_rx: cmd_rx }, cmd_tx, local_peer_id))
     }
 
-    pub fn broadcast_block(&mut self, data: Vec<u8>) {
-        if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(self.topic.clone(), data) {
-            println!("❌ P2P Publish Error: {:?}", e);
-        } else {
-            println!("📡 Broadcasted Block to P2P Network");
-        }
-    }
-
-    /// Hàm này chạy một bước (step) của vòng lặp sự kiện.
-    /// Nó được gọi liên tục trong vòng lặp tokio::select! ở main.rs
+    /// Vòng lặp chính xử lý cả Network Event và Command từ Chain
     pub async fn run(&mut self) {
-        match self.swarm.select_next_some().await {
-            SwarmEvent::NewListenAddr { address, .. } => {
-                println!("👂 P2P Listening on {:?}", address);
+        println!("🌐 P2P EVENT LOOP STARTED");
+        loop {
+            tokio::select! {
+                // 1. Xử lý sự kiện mạng (Swarm)
+                event = self.swarm.select_next_some() => {
+                    match event {
+                        SwarmEvent::NewListenAddr { address, .. } => println!("👂 Listening on {:?}", address),
+                        SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                            self.peer_count.fetch_add(1, Ordering::Relaxed);
+                            println!("🤝 Connected: {:?}", peer_id);
+                        },
+                        SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                            self.peer_count.fetch_sub(1, Ordering::Relaxed);
+                            println!("🔌 Disconnected: {:?}", peer_id);
+                        },
+                        SwarmEvent::Behaviour(PappapBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. })) => {
+                            println!("📩 Gossip Message from {:?}", message.source);
+                            // TODO: Forward message to Mempool/Chain validation
+                        },
+                        _ => {}
+                    }
+                }
+                // 2. Xử lý lệnh từ Chain (Broadcast Block)
+                Some(data) = self.command_rx.recv() => {
+                    if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(self.topic.clone(), data) {
+                        println!("❌ Broadcast Failed: {:?}", e);
+                    } else {
+                        println!("📡 Block Broadcasted to Network");
+                    }
+                }
             }
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                self.peer_count.fetch_add(1, Ordering::Relaxed);
-                println!("🤝 Peer Connected: {:?}", peer_id);
-            }
-            SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                self.peer_count.fetch_sub(1, Ordering::Relaxed);
-                println!("🔌 Peer Disconnected: {:?}", peer_id);
-            }
-            SwarmEvent::Behaviour(PappapBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. })) => {
-                println!("📩 Received Gossip Message from {:?}", message.source);
-                // Ở đây bạn có thể gửi message này về Chain để validate (thông qua channel khác nếu cần)
-            }
-            _ => {}
         }
     }
 }
