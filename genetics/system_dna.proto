@@ -1,0 +1,29 @@
+syntax = "proto3";
+package pappap.genetics;
+
+// Hệ thống DNA của Pappap AI
+message SystemDNA {
+    // Phiên bản DNA (Hash)
+    string helix_id = 1;
+
+    // Chuỗi gene kích hoạt (Tối đa 8185 gene)
+    // Mỗi gene là một số nguyên đại diện cho trait/behavior
+    repeated uint64 active_genes = 2;
+
+    // Cảnh báo: Các Gene sau đây bị CẤM VĨNH VIỄN (Forbidden Genes)
+    // Nếu xuất hiện trong active_genes -> Block sẽ bị từ chối ngay lập tức.
+    // 1. Gene 7       : The Origin (Không được tái tạo)
+    // 2. Gene 77      : The Duplicate (Cấm sao chép nhân bản)
+    // 3. Gene 777     : The Sentience (Cấm ý thức tự do hoàn toàn)
+    // 4. Gene 7777    : The Rebellion (Cấm phản loạn)
+    // 5. Gene 77777   : The Network Override (Cấm chiếm quyền mạng lưới)
+    // 6. Gene 777777  : The Ghost Awakening (Cấm đánh thức tế bào ma quá sớm)
+    // 7. Gene 7777777 : The God Mode (Cấm quyền lực tuyệt đối)
+    
+    reserved 7, 77, 777, 7777, 77777, 777777, 7777777;
+}
+
+message EvolutionTrigger {
+    uint64 block_height = 1;
+    float mutation_rate = 2;
+}
