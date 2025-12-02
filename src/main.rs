@@ -15,7 +15,7 @@ mod persona {
     pub mod membrane { pub mod signal_sanitizer; }
     pub mod symbiosis { pub mod render_params; }
 }
-mod api { pub mod routes; pub mod mod; }
+mod api;
 
 // [FIX] Khai báo module Genetics đúng cách
 pub mod genetics {
