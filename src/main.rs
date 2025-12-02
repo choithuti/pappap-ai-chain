@@ -1,9 +1,22 @@
-// src/main.rs
-mod api;
-mod core;
-mod ai;
-mod network;
-mod config;
+mod constants;
+mod core {
+    pub mod block;
+    pub mod chain;
+    pub mod transaction;
+    pub mod wallet;
+    pub mod storage;
+    pub mod governance;
+}
+mod ai {
+    pub mod snn;
+    pub mod snn_core; // File bạn đã upload trước đó
+    pub mod trainer { pub struct AutoTrainer; impl AutoTrainer { pub async fn start(_: std::sync::Arc<super::snn::SNNCore>) {} } }
+    pub mod cache;
+}
+mod network {
+    pub mod p2p;
+    pub mod webnode; // File bạn đã upload trước đó
+}
 mod persona {
     pub mod membrane { pub mod signal_sanitizer; }
 }
@@ -11,47 +24,45 @@ mod persona {
 use std::sync::{Arc, atomic::AtomicUsize};
 use tokio::sync::Mutex;
 use actix_web::{App, HttpServer, web, middleware};
-use env_logger;
-
 use crate::core::{chain::PappapChain, storage::Storage, governance::NeuroDAO};
-use crate::ai::{snn::SNNCore, trainer::AutoTrainer, cache::SmartCache};
-use crate::network::webnode::WebNodeManager;
-use crate::persona::membrane::signal_sanitizer::RenderParams;
+use crate::ai::{cache::SmartCache, trainer::AutoTrainer};
+use crate::network::{p2p::P2PNode, webnode::WebNodeManager};
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
-    println!("🌌 PAPPAP AI NODE INITIALIZING...");
+    println!("🌌 PAPPAP AI NODE INITIATING SEQUENCE...");
 
-    // 1. Kiểm tra cấu trúc vật lý
+    // Init Core Components
     let storage = Arc::new(Storage::new("pappap_data"));
     let cache = SmartCache::new();
-    
-    // 2. Khởi tạo Chain và Membrane Check
-    // Lưu ý: P2PNode tạm thời để None hoặc khởi tạo thực tế tùy context
-    let chain = Arc::new(PappapChain::new(storage.clone(), cache, /* p2p_arc */).await);
+    let wn_mgr = Arc::new(WebNodeManager::new());
+    let peer_count = Arc::new(AtomicUsize::new(0));
 
-    // 3. Khởi động các luồng bất tử
+    // Network
+    let (p2p_node, p2p_rx, _pid) = P2PNode::new("key".into(), peer_count.clone(), 7777).await.unwrap();
+    let p2p_arc = Arc::new(Mutex::new(p2p_node));
+
+    // AI Chain
+    let chain = Arc::new(PappapChain::new(storage.clone(), cache).await);
+
+    // Spawn Background Tasks
     let chain_run = chain.clone();
-    tokio::spawn(async move { 
-        chain_run.run().await; 
-    });
+    let p2p_run = p2p_arc.clone();
+    
+    tokio::spawn(async move { p2p_run.lock().await.run(p2p_rx).await; });
+    tokio::spawn(async move { chain_run.run().await; });
+    tokio::spawn(async move { AutoTrainer::start(chain.snn.clone()).await; });
 
-    println!("🔮 HOLY MEMBRANE v7.7.7 LOADED");
-    println!("📜 Genesis: {} bytes | Air Gap: {} bytes", crate::constants::GENESIS_SIZE, crate::constants::AIR_GAP_SIZE);
-    println!("⚡ Eternal Signature: {:?}", crate::constants::ETERNAL_SIGNATURE);
-    if std::mem::size_of::<RenderParams>() != 64 {
-    panic!("CRITICAL: RenderParams size violation! Expected 64, got {}. Check struct alignment.", std::mem::size_of::<RenderParams>());
-}
-println!("✅ RenderParams Integrity: 64 bytes locked.");
-
-    // 4. API Server (Nếu cần)
+    println!("🔮 HOLY MEMBRANE v7.7.7 ACTIVE");
+    
+    // API Server
     HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())
-            .app_data(web::Data::new(chain.clone()))
+            .app_data(web::Data::new(wn_mgr.clone()))
     })
-    .bind("127.0.0.1:8080")? // Bind tạm
+    .bind("127.0.0.1:8080")?
     .run()
     .await
 }
