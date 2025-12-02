@@ -1,76 +1,65 @@
-// src/core/chain.rs
-use std::sync::Arc;
-use std::time::{Instant, Duration};
 use crate::constants::*;
-use crate::ai::snn::SNNCore; //
-use crate::core::storage::Storage;
-use tokio::sync::Mutex;
+use crate::core::{block::Block, storage::Storage};
+use crate::ai::snn::SNNCore;
+use crate::ai::cache::SmartCache;
+use std::sync::Arc;
+use tokio::time::{sleep, Duration, Instant};
 
 pub struct PappapChain {
     pub storage: Arc<Storage>,
     pub snn: Arc<SNNCore>,
-    // ... các field khác
+    pub cache: SmartCache,
+    pub blocks: Vec<Block>, // Demo: In-memory
 }
 
 impl PappapChain {
-    pub async fn new(storage: Arc<Storage>, _cache: crate::ai::cache::SmartCache, _p2p: Arc<Mutex<crate::network::p2p::P2PNode>>) -> Self {
+    pub async fn new(storage: Arc<Storage>, cache: SmartCache) -> Self {
         Self {
             storage,
-            snn: Arc::new(SNNCore::new()), //
+            snn: Arc::new(SNNCore::new()),
+            cache,
+            blocks: Vec::new(),
         }
     }
 
     pub async fn validate_holy_membrane(&self) -> bool {
-        // Load từ đường dẫn cấu trúc mới
-        let genesis_path = "core/bootstrap/genesis_reader.wasm";
-        let air_gap_path = "persona/membrane/air_gap.wasm";
+        let genesis = std::fs::read("core/bootstrap/genesis_reader.wasm").unwrap_or_default();
+        let air_gap = std::fs::read("persona/membrane/air_gap.wasm").unwrap_or_default();
 
-        let genesis = match std::fs::read(genesis_path) {
-            Ok(data) => data,
-            Err(_) => { println!("❌ MISSING GENESIS: {}", genesis_path); return false; }
-        };
-
-        let air_gap = match std::fs::read(air_gap_path) {
-            Ok(data) => data,
-            Err(_) => { println!("❌ MISSING AIR_GAP: {}", air_gap_path); return false; }
-        };
-
-        // Kiểm tra kích thước byte chính xác đến từng đơn vị
         if genesis.len() as u64 != GENESIS_SIZE {
-            println!("⚠️ GENESIS SIZE VIOLATION: {} ≠ {}", genesis.len(), GENESIS_SIZE);
+            println!("🛑 FATAL: GENESIS SIZE VIOLATION: {} != {}", genesis.len(), GENESIS_SIZE);
             return false;
         }
         if air_gap.len() as u64 != AIR_GAP_SIZE {
-            println!("⚠️ AIR_GAP VIOLATION: {} ≠ {}", air_gap.len(), AIR_GAP_SIZE);
+            println!("🛑 FATAL: AIR_GAP VIOLATION: {} != {}", air_gap.len(), AIR_GAP_SIZE);
             return false;
         }
-        
-        println!("✅ HOLY MEMBRANE INTEGRITY: 100%");
         true
     }
 
     pub async fn run(&self) {
-        assert!(self.validate_holy_membrane().await, "🛑 HOLY MEMBRANE COMPROMISED – SHUTTING DOWN UNIVERSE");
+        if !self.validate_holy_membrane().await {
+            panic!("💀 HOLY MEMBRANE COMPROMISED - SHUTTING DOWN UNIVERSE");
+        }
+
+        println!("✅ CHAIN STARTED. Waiting for spikes...");
+        let start_time = Instant::now();
 
         loop {
-            let height = self.storage.get_height() + 1;
+            let height = self.blocks.len() as u64 + 1;
             
-            // AI tính toán spike (Deterministic)
+            // 1. AI Dreaming (Deterministic Spike)
             let _spike = self.snn.deterministic_forward(0.0, height).await;
 
-            // Kiểm tra Gene cấm và Ghost Cell
-            if height > 7 && FORBIDDEN_GENES.contains(&height) {
-                 println!("⚠️ FORBIDDEN GENE DETECTED AT BLOCK {}", height);
-            }
-
+            // 2. Ghost Cell Check
             if height > 7 && height % 777_777 == 0 {
-                if Instant::now().elapsed().as_secs() > GHOST_CELL_DEATH {
-                    panic!("☠️ Ghost Cell awakened after 7 years – Terminating.");
+                if start_time.elapsed().as_secs() > GHOST_CELL_DEATH {
+                    panic!("👻 Ghost Cell awakened after 7 years. Civilization not ready. Terminating.");
                 }
             }
 
-            // Timeout feedback loop
-            tokio::time::sleep(Duration::from_millis(FEEDBACK_TIMEOUT_MS)).await;
+            // 3. Feedback Loop Timeout
+            sleep(Duration::from_millis(FEEDBACK_TIMEOUT_MS)).await;
         }
     }
 }
