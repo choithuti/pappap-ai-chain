@@ -16,6 +16,7 @@ use env_logger;
 use crate::core::{chain::PappapChain, storage::Storage, governance::NeuroDAO};
 use crate::ai::{snn::SNNCore, trainer::AutoTrainer, cache::SmartCache};
 use crate::network::webnode::WebNodeManager;
+use crate::persona::membrane::signal_sanitizer::RenderParams;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -39,6 +40,10 @@ async fn main() -> std::io::Result<()> {
     println!("🔮 HOLY MEMBRANE v7.7.7 LOADED");
     println!("📜 Genesis: {} bytes | Air Gap: {} bytes", crate::constants::GENESIS_SIZE, crate::constants::AIR_GAP_SIZE);
     println!("⚡ Eternal Signature: {:?}", crate::constants::ETERNAL_SIGNATURE);
+    if std::mem::size_of::<RenderParams>() != 64 {
+    panic!("CRITICAL: RenderParams size violation! Expected 64, got {}. Check struct alignment.", std::mem::size_of::<RenderParams>());
+}
+println!("✅ RenderParams Integrity: 64 bytes locked.");
 
     // 4. API Server (Nếu cần)
     HttpServer::new(move || {
