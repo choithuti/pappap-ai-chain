@@ -2,7 +2,7 @@
 use sled::{Db, IVec};
 use std::str::from_utf8;
 use serde::{Serialize, Deserialize};
-use crate::core::block::Block; // Giả sử đã có struct Block
+use crate::core::block::Block;
 
 pub struct Storage {
     db: Db,
@@ -11,24 +11,31 @@ pub struct Storage {
 impl Storage {
     pub fn new(path: &str) -> Self {
         println!("💾 MOUNTING SLED DB AT: {}", path);
-        let db = sled::open(path).expect("Failed to open database");
+        // Sled tự động tạo thư mục và file db
+        let db = sled::open(path).expect("Failed to open Sled database");
         Self { db }
     }
 
-    // --- Block Persistence ---
+    // --- Block Methods ---
+
     pub fn save_block(&self, block: &Block) {
+        // Key: "block:<index>"
         let key = format!("block:{}", block.index);
-        let value = serde_json::to_vec(block).unwrap();
-        self.db.insert(key, value).unwrap();
+        let value = serde_json::to_vec(block).expect("Failed to serialize block");
         
-        // Lưu chiều cao block mới nhất
+        self.db.insert(key.as_bytes(), value).unwrap();
+        
+        // Cập nhật chiều cao và hash mới nhất
         self.db.insert("chain_height", &block.index.to_be_bytes()).unwrap();
-        self.db.flush().unwrap(); // Ép ghi xuống ổ cứng ngay
+        self.db.insert("last_hash", block.hash.as_bytes()).unwrap();
+        
+        // Flush để đảm bảo dữ liệu ghi xuống ổ cứng
+        self.db.flush().unwrap();
     }
 
     pub fn get_block(&self, index: u64) -> Option<Block> {
         let key = format!("block:{}", index);
-        if let Ok(Some(value)) = self.db.get(key) {
+        if let Ok(Some(value)) = self.db.get(key.as_bytes()) {
             return serde_json::from_slice(&value).ok();
         }
         None
@@ -40,19 +47,27 @@ impl Storage {
             arr.copy_from_slice(&val);
             return u64::from_be_bytes(arr);
         }
-        0 // Genesis
+        0 // Mặc định là 0 nếu chưa có block nào
     }
 
-    // --- AI Knowledge Persistence (Thay thế learn_fact demo cũ) ---
+    pub fn get_last_hash(&self) -> String {
+        if let Ok(Some(val)) = self.db.get("last_hash") {
+            return String::from_utf8(val.to_vec()).unwrap_or_else(|_| "0".repeat(64));
+        }
+        "0".repeat(64) // Genesis prev_hash mặc định
+    }
+
+    // --- AI Knowledge Base (Key-Value) ---
+
     pub fn learn_fact(&self, key: &str, value: &str) {
         let db_key = format!("fact:{}", key);
-        self.db.insert(db_key, value.as_bytes()).unwrap();
+        self.db.insert(db_key.as_bytes(), value.as_bytes()).unwrap();
     }
 
     pub fn recall_fact(&self, key: &str) -> Option<String> {
         let db_key = format!("fact:{}", key);
-        if let Ok(Some(val)) = self.db.get(db_key) {
-            return Some(from_utf8(&val).unwrap().to_string());
+        if let Ok(Some(val)) = self.db.get(db_key.as_bytes()) {
+            return Some(from_utf8(&val).unwrap_or("").to_string());
         }
         None
     }
