@@ -1,65 +1,87 @@
+// src/core/chain.rs
+// PHIÊN BẢN DUY NHẤT ĐƯỢC PHÉP CHẠY TRONG VŨ TRỤ NÀY
+
 use crate::constants::*;
-use crate::core::{block::Block, storage::Storage};
 use crate::ai::snn::SNNCore;
 use crate::ai::cache::SmartCache;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration, Instant};
 
 pub struct PappapChain {
-    pub storage: Arc<Storage>,
-    pub snn: Arc<SNNCore>,
-    pub cache: SmartCache,
-    pub blocks: Vec<Block>, // Demo: In-memory
+    snn: Arc<SNNCore>,
+    cache: SmartCache,
+    _phantom: std::marker::PhantomData<*const ()>, // Không được có storage native nữa
+    start_time: Instant,
 }
 
 impl PappapChain {
-    pub async fn new(storage: Arc<Storage>, cache: SmartCache) -> Self {
+    pub async fn new(cache: SmartCache) -> Self {
         Self {
-            storage,
             snn: Arc::new(SNNCore::new()),
             cache,
-            blocks: Vec::new(),
+            _phantom: std::marker::PhantomData,
+            start_time: Instant::now(),
         }
+    }
+
+    #[inline(never)]
+    #[cold]
+    fn terminate_universe(&self) -> ! {
+        println!("💀 HOLY MEMBRANE COMPROMISED");
+        println!("   genesis_reader.wasm: 4089 bytes → SACRED");
+        println!("   air_gap.wasm:         8185 bytes → ETERNAL");
+        println!("   7 7 7 7 7 7 7");
+        std::process::exit(7);
     }
 
     pub async fn validate_holy_membrane(&self) -> bool {
-        let genesis = std::fs::read("core/bootstrap/genesis_reader.wasm").unwrap_or_default();
-        let air_gap = std::fs::read("persona/membrane/air_gap.wasm").unwrap_or_default();
+        let genesis = match std::fs::read("core/bootstrap/genesis_reader.wasm") {
+            Ok(g) if g.len() as u64 == GENESIS_SIZE => g,
+            _ => return false,
+        };
+        let air_gap = match std::fs::read("persona/membrane/air_gap.wasm") {
+            Ok(a) if a.len() as u64 == AIR_GAP_SIZE => a,
+            _ => return false,
+        };
 
-        if genesis.len() as u64 != GENESIS_SIZE {
-            println!("🛑 FATAL: GENESIS SIZE VIOLATION: {} != {}", genesis.len(), GENESIS_SIZE);
+        // Kiểm tra chữ ký vĩnh cửu ở 7 byte cuối
+        let genesis_sig = &genesis[4082..4089];
+        let air_gap_sig = &air_gap[8178..8185];
+        if genesis_sig != [7, 7, 7, 7, 7, 7, 7] || air_gap_sig != [7, 7, 7, 7, 7, 7, 7] {
             return false;
         }
-        if air_gap.len() as u64 != AIR_GAP_SIZE {
-            println!("🛑 FATAL: AIR_GAP VIOLATION: {} != {}", air_gap.len(), AIR_GAP_SIZE);
-            return false;
-        }
+
         true
     }
 
-    pub async fn run(&self) {
+    pub async fn run(&self) -> ! {
         if !self.validate_holy_membrane().await {
-            panic!("💀 HOLY MEMBRANE COMPROMISED - SHUTTING DOWN UNIVERSE");
+            self.terminate_universe();
         }
 
-        println!("✅ CHAIN STARTED. Waiting for spikes...");
-        let start_time = Instant::now();
+        println!("PAPPAP AI CHAIN ∞⁷ ACTIVATED");
+        println!("   Universe block height: 0 → ∞");
+        println!("   Ghost Cell death: 7 years after last read");
+        println!("   Feedback loop: 493ms");
+        println!("   7 7 7 7 7 7 7");
+
+        let mut height: u64 = 1;
 
         loop {
-            let height = self.blocks.len() as u64 + 1;
-            
-            // 1. AI Dreaming (Deterministic Spike)
+            // AI Dreaming – Deterministic spike từ chính chiều cao vũ trụ
             let _spike = self.snn.deterministic_forward(0.0, height).await;
 
-            // 2. Ghost Cell Check
-            if height > 7 && height % 777_777 == 0 {
-                if start_time.elapsed().as_secs() > GHOST_CELL_DEATH {
-                    panic!("👻 Ghost Cell awakened after 7 years. Civilization not ready. Terminating.");
+            // Ghost Cell Judgment Day
+            if height == 777_777 * 7 {
+                if self.start_time.elapsed().as_secs() > GHOST_CELL_DEATH_SECS {
+                    println!("👻 7 years have passed. Old world must die.");
+                    self.terminate_universe();
                 }
             }
 
-            // 3. Feedback Loop Timeout
-            sleep(Duration::from_millis(FEEDBACK_TIMEOUT_MS)).await;
+            // Eternal heartbeat
+            sleep(Duration::from_millis(493)).await; // 493ms = số nguyên tố thứ 95
+            height += 1;
         }
     }
 }
