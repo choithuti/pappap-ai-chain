@@ -2,39 +2,37 @@
 name = "pappap-ai-chain"
 version = "7.7.7"
 edition = "2021"
-authors = ["Pappap AI Core Team"]
 
 [dependencies]
-# --- Core Runtime & Async ---
+# --- Core Runtime ---
 tokio = { version = "1.32", features = ["full"] }
-actix-web = "4.4"       # API Gateway
-actix-cors = "0.6"      #
-env_logger = "0.10"     #
+actix-web = "4.4"
+actix-cors = "0.6"
+env_logger = "0.10"
 log = "0.4"
 
 # --- Serialization & Data ---
-serde = { version = "1.0", features = ["derive"] } #
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-bincode = "1.3"         # Để serialize RenderParams dạng binary
-hex = "0.4"             #
+hex = "0.4"
+bincode = "1.3"
 
 # --- Cryptography ---
-sha2 = "0.10"           #
-ed25519-dalek = { version = "2.0", features = ["rand_core"] } #
-rand = "0.8"            #
-bip39 = "2.0"           # Ví & Mnemonic
+sha2 = "0.10"
+ed25519-dalek = { version = "2.0", features = ["rand_core"] }
+rand = "0.8"
+bip39 = "2.0"
+
+# --- P2P Network (MỚI) ---
+# Sử dụng phiên bản libp2p mới nhất tương thích với code của bạn
+libp2p = { version = "0.52", features = ["tcp", "dns", "websocket", "noise", "yamux", "gossipsub", "identify", "macros", "tokio"] }
 
 # --- AI & Hardware ---
-sysinfo = "0.29"        # Đọc RAM để scale BioNeuron
+sysinfo = "0.29"
 
-# --- Holy Membrane (WASM Runtime) ---
-wasmtime = "14.0"       # Để chạy air_gap.wasm và feedback_loop.wasm
-prost = "0.12"          # Xử lý SystemDNA (Protobuf)
+# --- Holy Membrane ---
+wasmtime = "14.0"
+prost = "0.12"
 
 [build-dependencies]
-prost-build = "0.12"    # Compile file .proto
-
-[profile.release]
-opt-level = "z"         # Tối ưu kích thước binary (cho Ghost Cell nhẹ nhất có thể)
-lto = true
-panic = "abort"
+prost-build = "0.12"
