@@ -95,9 +95,16 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())
+            .wrap(actix_cors::Cors::permissive()) // Cho phép Frontend gọi API
+            // Inject State
             .app_data(web::Data::new(chain.clone()))
             .app_data(web::Data::new(mempool.clone()))
-            .route("/", web::get().to(|| async { "Pappap Node Active" }))
+            .app_data(web::Data::new(dao.clone()))
+            .app_data(web::Data::new(wn_mgr.clone()))
+            .app_data(web::Data::new(snn_core.clone()))
+            // .app_data(web::Data::new(peer_count.clone())) // Nếu cần hiển thị peers
+            // Load Routes từ module API
+            .configure(crate::api::routes::config)
     })
     .bind("0.0.0.0:8080")?
     .run()
