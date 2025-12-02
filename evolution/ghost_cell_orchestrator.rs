@@ -1,28 +1,47 @@
-// evolution/ghost_cell_orchestrator.rs
+// src/evolution/ghost_cell_orchestrator.rs
 use std::time::{SystemTime, UNIX_EPOCH};
+use crate::constants::GHOST_CELL_DEATH;
 
-// 7 năm tính bằng giây
-const GHOST_CELL_LIFESPAN: u64 = 220_752_000; 
-
-pub struct GhostCell {
-    pub born_at: u64,
+pub struct GhostCellOrchestrator {
+    born_at: u64,
 }
 
-impl GhostCell {
-    pub fn new(born_at: u64) -> Self {
-        Self { born_at }
+impl GhostCellOrchestrator {
+    /// Khởi tạo tế bào ma với thời điểm sinh ra (Genesis Timestamp)
+    pub fn new(genesis_timestamp: u64) -> Self {
+        Self { born_at: genesis_timestamp }
     }
 
-    pub fn check_vitality(&self) {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        let age = now - self.born_at;
+    /// Kiểm tra sinh hiệu. Trả về true nếu còn sống, false nếu đã chết già.
+    pub fn check_vitality(&self) -> bool {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
-        if age > GHOST_CELL_LIFESPAN {
-            // Kích hoạt Apoptosis (Tự chết của tế bào)
-            eprintln!("⚰️  GHOST CELL EXPIRED. Age: {}s > Limit: {}s", age, GHOST_CELL_LIFESPAN);
-            std::process::exit(777); // Mã lỗi đặc biệt cho cái chết tự nhiên
+        let age = now.saturating_sub(self.born_at);
+
+        if age > GHOST_CELL_DEATH {
+            println!("⚰️  GHOST CELL DEATH: Age {}s > Limit {}s. Initiating Apoptosis.", age, GHOST_CELL_DEATH);
+            return false;
+        }
+        
+        true
+    }
+
+    /// Trả về thời gian còn lại (giây)
+    pub fn time_remaining(&self) -> u64 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        let death_time = self.born_at + GHOST_CELL_DEATH;
+        
+        if now >= death_time {
+            0
         } else {
-            println!("👻 Ghost Cell active. Remaining: {}s", GHOST_CELL_LIFESPAN - age);
+            death_time - now
         }
     }
 }
