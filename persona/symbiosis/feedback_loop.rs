@@ -1,18 +1,30 @@
 // persona/symbiosis/feedback_loop.rs
-// Compile command: cargo build --target wasm32-wasi --release
-use std::io::{self, Read, Write};
+use std::time::{Instant, Duration};
 
-fn main() {
-    // 1. Đọc tín hiệu đầu vào (chỉ từ stdin - camera/mic/neural-link đã pre-process)
-    let mut buffer = [0u8; 128];
-    if let Ok(n) = io::stdin().read(&mut buffer) {
-        // ... Xử lý nội tại (Blackbox AI) ...
+// Hằng số Timeout
+const HARD_TIMEOUT_MS: u128 = 493; 
+
+pub fn run_feedback_cycle() -> Vec<u8> {
+    let start_time = Instant::now();
+
+    // 1. Giả lập xử lý thần kinh (Neural Processing)
+    let mut brain_power = 0;
+    for _ in 0..1000 {
+        brain_power += 1;
+        // Kiểm tra timeout liên tục trong vòng lặp
+        if start_time.elapsed().as_millis() > HARD_TIMEOUT_MS {
+            // Nếu vượt quá 493ms -> Tự hủy ngay lập tức
+            panic!("💀 TIMEOUT: Feedback loop exceeded 493ms. Neuron burned.");
+        }
     }
 
-    // 2. Kiểm tra thời gian (Giả lập: Nếu > 1s thì panic ngay lập tức)
-    // Lưu ý: Trong môi trường WASI thực tế, host sẽ kill process này nếu timeout.
+    // 2. Kiểm tra lần cuối trước khi trả về
+    if start_time.elapsed().as_millis() > HARD_TIMEOUT_MS {
+        panic!("💀 TIMEOUT: Feedback loop too slow.");
+    }
 
-    // 3. Xuất RenderParams (64 bytes) ra stdout
-    let output = [7u8; 64]; // Giả lập output đã tính toán
-    io::stdout().write_all(&output).expect("Membrane rupture!");
+    println!("✅ Cycle completed in {}ms", start_time.elapsed().as_millis());
+    
+    // Trả về dữ liệu dummy (cần map vào RenderParams sau)
+    vec![7; 64] 
 }
