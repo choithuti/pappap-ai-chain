@@ -1,8 +1,9 @@
+// src/core/governance.rs
 use serde::{Serialize, Deserialize};
 use tokio::sync::RwLock;
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Proposal {
     pub id: u64,
     pub title: String,
@@ -19,7 +20,7 @@ pub struct NeuroDAO {
 
 impl NeuroDAO {
     pub fn new() -> Self {
-        println!("⚖️  NEURO DAO GOVERNANCE SYSTEM ONLINE");
+        println!("⚖️  NEURO DAO: GOVERNANCE SYSTEM ONLINE");
         Self {
             proposals: RwLock::new(HashMap::new()),
             next_id: RwLock::new(1),
@@ -32,11 +33,51 @@ impl NeuroDAO {
         *id_lock += 1;
 
         let prop = Proposal {
-            id, title, description: desc, votes_yes: 0, votes_no: 0, status: "Active".to_string(),
+            id,
+            title,
+            description: desc,
+            votes_yes: 0,
+            votes_no: 0,
+            status: "Active".to_string(),
         };
 
         self.proposals.write().await.insert(id, prop);
+        println!("📜 Proposal Created: ID {}", id);
         id
     }
-    // ... (Giữ nguyên phần còn lại của file governance.rs bạn đã upload)
+
+    pub async fn vote(&self, id: u64, approve: bool) -> Result<String, String> {
+        let mut props = self.proposals.write().await;
+        
+        if let Some(p) = props.get_mut(&id) {
+            if p.status != "Active" {
+                return Err("Proposal is closed".to_string());
+            }
+            
+            if approve {
+                p.votes_yes += 1;
+            } else {
+                p.votes_no += 1;
+            }
+            
+            // Logic chốt phiếu đơn giản (Hardcap 10 phiếu)
+            if p.votes_yes + p.votes_no >= 10 {
+                p.status = if p.votes_yes > p.votes_no {
+                    "Passed".to_string()
+                } else {
+                    "Rejected".to_string()
+                };
+                println!("🔨 Proposal {} Closed: {}", id, p.status);
+            }
+            
+            Ok(format!("Voted. Current: {} Yes / {} No", p.votes_yes, p.votes_no))
+        } else {
+            Err("Proposal not found".to_string())
+        }
+    }
+
+    pub async fn list_proposals(&self) -> Vec<Proposal> {
+        let props = self.proposals.read().await;
+        props.values().cloned().collect()
+    }
 }
