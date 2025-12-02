@@ -27,7 +27,7 @@ use actix_web::{App, HttpServer, web, middleware};
 use crate::core::{chain::PappapChain, storage::Storage, governance::NeuroDAO};
 use crate::ai::{cache::SmartCache, trainer::AutoTrainer};
 use crate::network::{p2p::P2PNode, webnode::WebNodeManager};
-
+use libp2p::identity;
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
@@ -40,7 +40,8 @@ async fn main() -> std::io::Result<()> {
     let peer_count = Arc::new(AtomicUsize::new(0));
 
     // Network
-    let (p2p_node, p2p_rx, _pid) = P2PNode::new("key".into(), peer_count.clone(), 7777).await.unwrap();
+    let local_key = identity::Keypair::generate_ed25519();
+    let (mut p2p_node, p2p_rx, local_peer_id) = P2PNode::new(local_key, peer_count.clone(), 7777).await.unwrap();
     let p2p_arc = Arc::new(Mutex::new(p2p_node));
 
     // AI Chain
